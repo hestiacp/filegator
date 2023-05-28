@@ -143,6 +143,18 @@ class FileController
 
         return $response->json('Done');
     }
+    
+    public function chmodItems(Request $request, Response $response)
+    {
+        $items = $request->input('items', []);
+        $permissions = $request->input('permissions', $this->separator);
+
+        foreach ($items as $item) {
+            $this->storage->chmod($item->path, $permissions);
+        }
+
+        return $response->json('Done');
+    }
 
     public function renameItem(Request $request, Response $response)
     {

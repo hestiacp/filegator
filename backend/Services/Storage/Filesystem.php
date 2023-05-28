@@ -12,6 +12,7 @@ namespace Filegator\Services\Storage;
 
 use Filegator\Services\Service;
 use League\Flysystem\Filesystem as Flysystem;
+use League\Flysystem\Util;
 
 class Filesystem implements Service
 {
@@ -175,6 +176,31 @@ class Filesystem implements Service
         }
 
         return $this->storage->putStream($destination, $resource);
+    }
+    
+    public function chmod(string $path, int $permissions)
+    {
+        $path = $this->applyPathPrefix($path);
+        $path = Util::normalizePath($path);
+        $this->storage->assertPresent($path);
+        $adapter = $this->storage->getAdapter();
+        
+        switch (get_class($adapter)) {
+            case 'League\Flysystem\Adapter\Local':
+                // local does not support chmod, but we can do it manually, because it's local
+                $path = $adapter->applyPathPrefix($path); // get the full path
+                return chmod($path, octdec($permissions));
+                break;
+            case 'League\Flysystem\Sftp\SftpAdapter':
+                return $adapter->getConnection()->chmod($path, $permissions);
+                break;
+            case 'League\Flysystem\Ftp\FtpAdapter':
+                return ftp_chmod($adapter->getConnection(), $permissions, $path);
+                break;
+            default:
+                throw new \Exception('Selected adapter does not support unix permissions');
+                break;
+        }
     }
 
     public function setPathPrefix(string $path_prefix)
