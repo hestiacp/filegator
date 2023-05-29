@@ -20,8 +20,8 @@
         <div class="column permission-type is-2">
           <b-field>
             <b-input
-              :value="String(permissions).padStart(3, '0')"
-              @input="v => permissions = parseInt(v.slice(-3))"
+              :value="String(newPermissions).padStart(3, '0')"
+              @input="v => newPermissions = parseInt(v.slice(-3))"
               maxlength="4"
               required
             />
@@ -34,7 +34,7 @@
       <button class="button" type="button" @click="$parent.close()">
         {{ lang('Cancel') }}
       </button>
-      <button class="button is-primary" type="button" @click="$emit('saved', permissions) && $parent.close()">
+      <button class="button is-primary" type="button" @click="$emit('saved', newPermissions) && $parent.close()">
         {{ lang('Save') }}
       </button>
     </footer>
@@ -44,15 +44,16 @@
 <script>
 export default {
   name: 'Permissions',
+  props: ['permissions'],
   data() {
     return {
-      permissions: 700
+      newPermissions: 700
     }
   },
   computed: {
     table() {
       // credits to ChatGPT for this function
-      const binary = parseInt(this.permissions, 8).toString(2).padStart(9, '0') // Convert octal to binary and pad to 9 digits
+      const binary = parseInt(this.newPermissions, 8).toString(2).padStart(9, '0') // Convert octal to binary and pad to 9 digits
       return {
         owner: {
           read: binary[0] === '1',
@@ -90,9 +91,14 @@ export default {
       if (permissionsObject.other.read) permissions += 4
       if (permissionsObject.other.write) permissions += 2
       if (permissionsObject.other.execute) permissions += 1
-      this.permissions = permissions
+      this.newPermissions = permissions
       return permissions
     },
+  },
+  mounted() {
+    if (this.permissions && this.permissions !== -1) {
+      this.newPermissions = this.permissions
+    }
   }
 }
 </script>

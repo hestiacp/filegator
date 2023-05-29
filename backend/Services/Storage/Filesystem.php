@@ -230,15 +230,40 @@ class Filesystem implements Service
             $dirname = isset($entry['dirname']) ? $entry['dirname'] : $path;
             $size = isset($entry['size']) ? $entry['size'] : 0;
             $timestamp = isset($entry['timestamp']) ? $entry['timestamp'] : 0;
+            $permissions = $this->getPermissions($entry['path']);
 
-            $collection->addFile($entry['type'], $userpath, $name, $size, $timestamp);
+            $collection->addFile($entry['type'], $userpath, $name, $size, $timestamp, $permissions);
         }
 
         if (! $recursive && $this->addSeparators($path) !== $this->separator) {
-            $collection->addFile('back', $this->getParent($path), '..', 0, 0);
+            $collection->addFile('back', $this->getParent($path), '..', 0, 0, -1);
         }
 
         return $collection;
+    }
+    
+    protected function getPermissions(string $path): int
+    {
+        $adapter = $this->storage->getAdapter();
+        
+        switch (get_class($adapter)) {
+            case 'League\Flysystem\Adapter\Local':
+                // local does not support chmod, but we can do it manually, because it's local
+                $path = $adapter->applyPathPrefix($path); // get the full path
+                $permissions = substr(sprintf('%o', fileperms($path)), -3);
+                return $permissions;
+                break;
+            case 'League\Flysystem\Sftp\SftpAdapter':
+                // return $adapter->getConnection()->chmod($path, $permissions);
+                break;
+            case 'League\Flysystem\Ftp\FtpAdapter':
+                // return ftp_chmod($adapter->getConnection(), $permissions, $path);
+                break;
+            default:
+                throw new \Exception('Selected adapter does not support unix permissions');
+                break;
+        }
+        return -1;
     }
 
     protected function upcountCallback($matches)

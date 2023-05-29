@@ -136,7 +136,7 @@
                   <b-icon icon="file-archive" size="is-small" /> {{ lang('Zip') }}
                 </b-dropdown-item>
                 <b-dropdown-item v-if="can(['write', 'chmod'])" aria-role="listitem" @click="chmod($event, props.row)">
-                  <b-icon icon="lock" size="is-small" /> {{ lang('Permissions') }}
+                  <b-icon icon="lock" size="is-small" /> {{ lang('Permissions') }}{{ props.row.permissions !== -1 ? ` (${props.row.permissions})` : '' }}
                 </b-dropdown-item>
                 <b-dropdown-item v-if="can('write')" aria-role="listitem" @click="remove($event, props.row)">
                   <b-icon icon="trash-alt" size="is-small" /> {{ lang('Delete') }}
@@ -500,6 +500,7 @@ export default {
         parent: this,
         hasModalCard: true,
         component: Permissions,
+        props: { permissions: item.permissions },
         events: {
           saved: permissions => {
             this.isLoading = true
