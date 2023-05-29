@@ -187,12 +187,11 @@ class Filesystem implements Service
         
         switch (get_class($adapter)) {
             case 'League\Flysystem\Adapter\Local':
-                // local does not support chmod, but we can do it manually, because it's local
-                $path = $adapter->applyPathPrefix($path); // get the full path
-                return chmod($path, octdec($permissions));
+                $absolutePath = $adapter->applyPathPrefix($path);
+                return chmod($absolutePath, octdec($permissions));
                 break;
             case 'League\Flysystem\Sftp\SftpAdapter':
-                return $adapter->getConnection()->chmod($path, $permissions);
+                return $adapter->getConnection()->chmod($path, octdec($permissions));
                 break;
             case 'League\Flysystem\Ftp\FtpAdapter':
             case 'League\Flysystem\Adapter\Ftp':
@@ -261,7 +260,8 @@ class Filesystem implements Service
                 return $permissions;
                 break;
             case 'League\Flysystem\Sftp\SftpAdapter':
-                // return $adapter->getConnection()->chmod($path, $permissions);
+                $stat = $adapter->getConnection()->stat($path);
+                return $stat && isset($stat['permissions']) ? substr(decoct($stat['permissions']), -3) : -1;
                 break;
             case 'League\Flysystem\Ftp\FtpAdapter':
             case 'League\Flysystem\Adapter\Ftp':
