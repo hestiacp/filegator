@@ -6,9 +6,10 @@
       </p>
     </header>
     <section class="modal-card-body">
-      
       <div class="columns permission-item" v-for="(typePermissions, type) in table" :key="type">
-        <div class="column permission-type is-3">{{ type }}</div>
+        <div class="column permission-type is-3">
+          {{ type }}
+        </div>
         <div class="column permission-name is-3" v-for="(value, permission) in typePermissions" :key="permission">
           <b-checkbox :value="value" @input="changePermission(type, permission, !value)">
             {{ permission }}
@@ -16,7 +17,9 @@
         </div>
       </div>
       <div class="columns permission-item">
-        <div class="column permission-type is-3">{{ lang('Permissions') }}</div>
+        <div class="column permission-type is-3">
+          {{ lang('Permissions') }}
+        </div>
         <div class="column permission-type is-3 manual-permission-cell">
           <b-field>
             <b-input
@@ -29,19 +32,28 @@
         </div>
       </div>
       <div class="columns permission-item" v-if="isDir">
-        <div class="column permission-type is-3">{{ lang('Recursive') }}</div>
+        <div class="column permission-type is-3">
+          {{ lang('Recursive') }}
+        </div>
         <div class="column permission-type is-9">
           <b-field>
             <b-select v-model="recursive" expanded>
-              <option :value="null">{{ lang('No') }}</option>
-              <option value="all">{{ lang('Both folders and files') }}</option>
-              <option value="folders">{{ lang('Apply only for folders') }}</option>
-              <option value="files">{{ lang('Apply only for files') }}</option>
+              <option :value="null">
+                {{ lang('No') }}
+              </option>
+              <option value="all">
+                {{ lang('Both folders and files') }}
+              </option>
+              <option value="folders">
+                {{ lang('Apply only for folders') }}
+              </option>
+              <option value="files">
+                {{ lang('Apply only for files') }}
+              </option>
             </b-select>
           </b-field>
         </div>
       </div>
-      
     </section>
     <footer class="modal-card-foot">
       <button class="button" type="button" @click="$parent.close()">
@@ -88,6 +100,11 @@ export default {
       }
     }
   },
+  mounted() {
+    if (this.permissions && this.permissions !== -1) {
+      this.newPermissions = this.permissions
+    }
+  },
   methods: {
     changePermission(type, permission, on) {
       // credits to ChatGPT for this function
@@ -109,11 +126,6 @@ export default {
       this.newPermissions = permissions
       return permissions
     },
-  },
-  mounted() {
-    if (this.permissions && this.permissions !== -1) {
-      this.newPermissions = this.permissions
-    }
   }
 }
 </script>
