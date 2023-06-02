@@ -193,8 +193,7 @@ class Filesystem implements Service
             case 'League\Flysystem\Sftp\SftpAdapter':
                 return $adapter->getConnection()->chmod($path, octdec($permissions));
                 break;
-            case 'League\Flysystem\Ftp\FtpAdapter':
-            case 'League\Flysystem\Adapter\Ftp':
+            case 'Filegator\Services\Storage\Adapters\FilegatorFtp':
                 return ftp_chmod($adapter->getConnection(), octdec($permissions), $path);
                 break;
             default:
@@ -220,13 +219,7 @@ class Filesystem implements Service
 
     public function getDirectoryCollection(string $path, bool $recursive = false): DirectoryCollection
     {
-        $adapter = $this->storage->getAdapter();
         $collection = new DirectoryCollection($path);
-        
-        $rawPermissions = null;
-        if ( in_array(get_class($adapter), ['League\Flysystem\Ftp\FtpAdapter', 'League\Flysystem\Adapter\Ftp'])) {
-            $rawPermissions = $this->getFtpRawPermissions($adapter, $this->applyPathPrefix($path), $recursive);
-        }
 
         foreach ($this->storage->listContents($this->applyPathPrefix($path), $recursive) as $entry) {
             // By default only 'path' and 'type' is present
@@ -236,7 +229,7 @@ class Filesystem implements Service
             $dirname = isset($entry['dirname']) ? $entry['dirname'] : $path;
             $size = isset($entry['size']) ? $entry['size'] : 0;
             $timestamp = isset($entry['timestamp']) ? $entry['timestamp'] : 0;
-            $permissions = $this->getPermissions($entry['path'], $rawPermissions);
+            $permissions = $this->getPermissions($entry);
 
             $collection->addFile($entry['type'], $userpath, $name, $size, $timestamp, $permissions);
         }
@@ -248,13 +241,13 @@ class Filesystem implements Service
         return $collection;
     }
     
-    protected function getPermissions(string $path, $rawPermissions = null): int
+    protected function getPermissions(array $entry): int
     {
         $adapter = $this->storage->getAdapter();
+        $path = $entry['path'];
         
         switch (get_class($adapter)) {
             case 'League\Flysystem\Adapter\Local':
-                // local does not support chmod, but we can do it manually, because it's local
                 $path = $adapter->applyPathPrefix($path); // get the full path
                 $permissions = substr(sprintf('%o', fileperms($path)), -3);
                 return $permissions;
@@ -263,87 +256,11 @@ class Filesystem implements Service
                 $stat = $adapter->getConnection()->stat($path);
                 return $stat && isset($stat['permissions']) ? substr(decoct($stat['permissions']), -3) : -1;
                 break;
-            case 'League\Flysystem\Ftp\FtpAdapter':
-            case 'League\Flysystem\Adapter\Ftp':
-                if (!$rawPermissions) return -1;
-                if (isset($rawPermissions[$path])) return $rawPermissions[$path];
+            case 'Filegator\Services\Storage\Adapters\FilegatorFtp':
+                return isset($entry['permissions']) ? $entry['permissions'] : -1;
                 break;
         }
         return -1;
-    }
-    
-    protected function getFtpRawPermissions($adapter, $directory, $recursive = true)
-    {
-        $directory = Util::normalizePath($directory);
-        if ($recursive) {
-            return $this->getFtpRawPermissionsRecursive($adapter, $directory);
-        }
-
-        $options = $recursive ? '-alnR' : '-aln';
-        $listing = $this->ftpRawlist($adapter, $options, $directory);
-
-        return $listing ? $this->ftpParsePermissions($listing, $directory) : [];
-    }
-    
-    protected function getFtpRawPermissionsRecursive($adapter, $directory)
-    {
-        $listing = $this->ftpParsePermissions($this->ftpRawlist($adapter, '-aln', $directory) ?: [], $directory);
-        $output = [];
-
-        foreach ($listing as $item) {
-            $output[] = $item;
-            if ($item['type'] !== 'dir') {
-                continue;
-            }
-            $output = array_merge($output, $this->getFtpRawPermissionsRecursive($adapter, $item['path']));
-        }
-
-        return $output;
-    }
-    
-    protected function ftpRawlist($adapter, $options, $path)
-    {
-        $connection = $adapter->getConnection();
-        return ftp_rawlist($connection, $options . ' ' . $path);
-    }
-    
-    protected function ftpParsePermissions(array $listing, $prefix = '')
-    {
-        $base = $prefix;
-        $result = [];
-        
-        while ($item = array_shift($listing)) {
-            $systemType = preg_match('/^[0-9]{2,4}-[0-9]{2}-[0-9]{2}/', $item) ? 'windows' : 'unix';
-            if ($systemType === 'unix') {
-                $item = preg_replace('#\s+#', ' ', trim($item), 7);
-                list($permissions, /* $number */, /* $owner */, /* $group */, $size, $month, $day, $timeOrYear, $name) = explode(' ', $item, 9);
-                $type = substr($permissions, 0, 1) === 'd' ? 'dir' : 'file';
-                $path = $base === '' ? $name : $base . $this->separator . $name;
-                if (is_numeric($permissions)) {
-                    $result[$path] = ((int) $permissions) & 0777;
-                } else {
-                    $mode = 0;
-                    // Convert the string representation to octal - credits to ChatGPT
-                    $mode += ($permissions[1] === 'r') ? 400 : 0;
-                    $mode += ($permissions[2] === 'w') ? 200 : 0;
-                    $mode += ($permissions[3] === 'x' || $permissions[3] === 's' || $permissions[3] === 't') ? 100 : 0;
-                    $mode += ($permissions[4] === 'r') ? 40 : 0;
-                    $mode += ($permissions[5] === 'w') ? 20 : 0;
-                    $mode += ($permissions[6] === 'x' || $permissions[6] === 's' || $permissions[6] === 't') ? 10 : 0;
-                    $mode += ($permissions[7] === 'r') ? 4 : 0;
-                    $mode += ($permissions[8] === 'w') ? 2 : 0;
-                    $mode += ($permissions[9] === 'x' || $permissions[9] === 's' || $permissions[9] === 't') ? 1 : 0;
-                    $result[$path] = $mode;
-                }
-            } elseif ($systemType === 'windows') {
-                $item = preg_replace('#\s+#', ' ', trim($item), 3);
-                list($date, $time, $size, $name) = explode(' ', $item, 4);
-                $path = $base === '' ? $name : $base . $this->separator . $name;
-                $result[$path] = 777;
-            }
-        }
-
-        return $result;
     }
 
     protected function upcountCallback($matches)
