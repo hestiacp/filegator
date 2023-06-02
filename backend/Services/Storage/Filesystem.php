@@ -178,11 +178,53 @@ class Filesystem implements Service
         return $this->storage->putStream($destination, $resource);
     }
     
-    public function chmod(string $path, int $permissions)
+    /**
+     * Change file permissions one item, with optional recursion
+     * 
+     * @param string $path
+     * @param int $permissions
+     * @param null|'all'|'folders'|'files' $recursive
+     * @return bool
+     * @throws \Exception
+     */
+    public function chmod(string $path, int $permissions, string $recursive = null)
     {
         $path = $this->applyPathPrefix($path);
         $path = Util::normalizePath($path);
-        $this->storage->assertPresent($path);
+        $adapter = $this->storage->getAdapter();
+        
+        $mainResult = $this->chmodItem($path, $permissions);
+        if ($recursive !== null) {
+            if (method_exists($adapter, 'setRecurseManually')) {
+                $adapter->setRecurseManually(true); // this is needed for ftp driver
+            }
+            $contents = $this->storage->listContents($path, true);
+            foreach ($contents as $item) {
+                try {
+                    if ($item['type'] == 'dir' && ($recursive == 'all' || $recursive == 'folders')) {
+                        $this->chmodItem($item['path'], $permissions);
+                    }
+                    if ($item['type'] == 'file' && ($recursive == 'all' || $recursive == 'files')) {
+                        $this->chmodItem($item['path'], $permissions);
+                    }
+                } catch (\Exception $e) {
+                    continue;
+                }
+            }
+        }
+        
+        return $mainResult;
+    }
+    /**
+     * Change file permissions for a single item
+     * 
+     * @param string $path
+     * @param int $permissions
+     * @return bool
+     * @throws \Exception
+     */
+    public function chmodItem(string $path, int $permissions)
+    {
         $adapter = $this->storage->getAdapter();
         
         switch (get_class($adapter)) {
@@ -194,7 +236,7 @@ class Filesystem implements Service
                 return $adapter->getConnection()->chmod($path, octdec($permissions));
                 break;
             case 'Filegator\Services\Storage\Adapters\FilegatorFtp':
-                return ftp_chmod($adapter->getConnection(), octdec($permissions), $path);
+                return ftp_chmod($adapter->getConnection(), octdec($permissions), $path) !== false;
                 break;
             default:
                 throw new \Exception('Selected adapter does not support unix permissions');

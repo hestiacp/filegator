@@ -500,13 +500,18 @@ export default {
         parent: this,
         hasModalCard: true,
         component: Permissions,
-        props: { permissions: item.permissions },
+        props: {
+          name: item.name,
+          permissions: item.permissions,
+          isDir: item.type == 'dir',
+        },
         events: {
-          saved: permissions => {
+          saved: (permissions, recursive = null) => {
             this.isLoading = true
             api.chmodItems({
-              permissions: permissions,
               items: item ? [item] : this.getSelected(),
+              permissions: permissions,
+              recursive: recursive,
             })
               .then(() => {
                 this.isLoading = false

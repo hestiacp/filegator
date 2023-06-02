@@ -2,22 +2,22 @@
   <div class="modal-card">
     <header class="modal-card-head">
       <p class="modal-card-title">
-        {{ lang('Change Permissions') }}
+        {{ lang('Change permissions for') }} {{ name }}
       </p>
     </header>
     <section class="modal-card-body">
       
       <div class="columns permission-item" v-for="(typePermissions, type) in table" :key="type">
-        <div class="column permission-type is-2">{{ type }}</div>
-        <div class="column permission-name is-2" v-for="(value, permission) in typePermissions" :key="permission">
+        <div class="column permission-type is-3">{{ type }}</div>
+        <div class="column permission-name is-3" v-for="(value, permission) in typePermissions" :key="permission">
           <b-checkbox :value="value" @input="changePermission(type, permission, !value)">
             {{ permission }}
           </b-checkbox>
         </div>
       </div>
       <div class="columns permission-item">
-        <div class="column permission-type is-2">{{ lang('Permissions') }}</div>
-        <div class="column permission-type is-2">
+        <div class="column permission-type is-3">{{ lang('Permissions') }}</div>
+        <div class="column permission-type is-3 manual-permission-cell">
           <b-field>
             <b-input
               :value="String(newPermissions).padStart(3, '0')"
@@ -28,13 +28,26 @@
           </b-field>
         </div>
       </div>
+      <div class="columns permission-item" v-if="isDir">
+        <div class="column permission-type is-3">{{ lang('Recursive') }}</div>
+        <div class="column permission-type is-9">
+          <b-field>
+            <b-select v-model="recursive" expanded>
+              <option :value="null">{{ lang('No') }}</option>
+              <option value="all">{{ lang('Both folders and files') }}</option>
+              <option value="folders">{{ lang('Apply only for folders') }}</option>
+              <option value="files">{{ lang('Apply only for files') }}</option>
+            </b-select>
+          </b-field>
+        </div>
+      </div>
       
     </section>
     <footer class="modal-card-foot">
       <button class="button" type="button" @click="$parent.close()">
         {{ lang('Cancel') }}
       </button>
-      <button class="button is-primary" type="button" @click="$emit('saved', newPermissions) && $parent.close()">
+      <button class="button is-primary" type="button" @click="$emit('saved', newPermissions, recursive) && $parent.close()">
         {{ lang('Save') }}
       </button>
     </footer>
@@ -44,10 +57,12 @@
 <script>
 export default {
   name: 'Permissions',
-  props: ['permissions'],
+  props: ['name', 'permissions', 'isDir'],
   data() {
     return {
-      newPermissions: 700
+      newPermissions: 700,
+      /** @type {null | 'all' | 'folders' | 'files'} */
+      recursive: null,
     }
   },
   computed: {
@@ -109,5 +124,8 @@ export default {
 }
 .permission-name {
   text-transform: capitalize;
+}
+.manual-permission-cell .help.counter {
+  display: none;
 }
 </style>

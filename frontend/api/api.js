@@ -124,6 +124,7 @@ const api = {
       axios.post('chmoditems', {
         permissions: params.permissions,
         items: params.items,
+        recursive: params.recursive,
       })
         .then(res => resolve(res.data.data))
         .catch(error => reject(error))

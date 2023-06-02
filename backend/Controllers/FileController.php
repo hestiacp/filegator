@@ -147,10 +147,12 @@ class FileController
     public function chmodItems(Request $request, Response $response)
     {
         $items = $request->input('items', []);
-        $permissions = $request->input('permissions', $this->separator);
+        $permissions = $request->input('permissions', 0);
+        /** @var null|'all'|'folders'|'files' */
+        $recursive = $request->input('recursive', null);
 
         foreach ($items as $item) {
-            $this->storage->chmod($item->path, $permissions);
+            $this->storage->chmod($item->path, $permissions, $recursive);
         }
 
         return $response->json('Done');
